@@ -21,3 +21,6 @@ Toque rápido: Cambia al primer dispositivo.
 Mantener presionado: Cambia a un segundo dispositivo (con umbral configurable de 100ms a 500ms).
 
 Personalización de Iconos: Nueva opción de clic derecho para cambiar el icono de cualquier dispositivo. El cambio se refleja instantáneamente tanto en la interfaz del programa como en el área de notificación (System Tray).
+
+
+![cambio de icono](https://github.com/user-attachments/assets/57a0e16f-dc3a-47b7-9d6e-06469f50b607)
