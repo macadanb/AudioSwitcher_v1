@@ -10,7 +10,7 @@ Long Press (Hold): Switches to a secondary device, featuring a customizable timi
 
 Icon Customization: New right-click context menu to change device icons. Custom icons are updated globally across the app interface and the System Tray.
 
- >>>>>>>>>>>>>>>>>>>>>> E S P A Ñ O L <<<<<<<<<<<<<<<<<<<<<<<
+ >>>E S P A Ñ O L <<<
 Resumen del Proyecto 
 Este es un fork "mejorado" de AudioSwitcher (Xenolight) que optimiza la gestión de dispositivos mediante funciones de control avanzadas:
 
