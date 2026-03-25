@@ -1,4 +1,4 @@
-﻿namespace FortyOne.AudioSwitcher
+﻿﻿namespace FortyOne.AudioSwitcher
 {
     partial class AudioSwitcher
     {
@@ -36,6 +36,10 @@
 			this.mnuSetPlaybackStartupDevice = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
 			this.mnuFavouritePlaybackDevice = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparatorIcon1 = new System.Windows.Forms.ToolStripSeparator();
+			this.mnuChangePlaybackIcon = new System.Windows.Forms.ToolStripMenuItem();
+			this.mnuRemovePlaybackIcon = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
 			this.setHotKeyToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tapPlayback = new System.Windows.Forms.TabPage();
@@ -55,6 +59,10 @@
 			this.mnuSetRecordingStartupDevice = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
 			this.mnuFavouriteRecordingDevice = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparatorIcon2 = new System.Windows.Forms.ToolStripSeparator();
+			this.mnuChangeRecordingIcon = new System.Windows.Forms.ToolStripMenuItem();
+			this.mnuRemoveRecordingIcon = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
 			this.setHotKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.listBoxRecording = new System.Windows.Forms.ListView();
 			this.columnHeader4 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -136,9 +144,13 @@
             this.mnuSetPlaybackStartupDevice,
             this.toolStripSeparator2,
             this.mnuFavouritePlaybackDevice,
+            this.toolStripSeparatorIcon1,
+            this.mnuChangePlaybackIcon,
+            this.mnuRemovePlaybackIcon,
+            this.toolStripSeparator4,
             this.setHotKeyToolStripMenuItem1});
 			this.playbackStrip.Name = "contextMenuStrip1";
-			this.playbackStrip.Size = new System.Drawing.Size(246, 120);
+			this.playbackStrip.Size = new System.Drawing.Size(246, 198);
 			this.playbackStrip.Opening += new System.ComponentModel.CancelEventHandler(this.playbackStrip_Opening);
 			// 
 			// mnuSetPlaybackDefault
@@ -173,6 +185,30 @@
 			this.mnuFavouritePlaybackDevice.Size = new System.Drawing.Size(245, 22);
 			this.mnuFavouritePlaybackDevice.Text = "Favourite Device";
 			this.mnuFavouritePlaybackDevice.Click += new System.EventHandler(this.mnuFavouritePlaybackDevice_Click);
+			// 
+			// toolStripSeparatorIcon1
+			// 
+			this.toolStripSeparatorIcon1.Name = "toolStripSeparatorIcon1";
+			this.toolStripSeparatorIcon1.Size = new System.Drawing.Size(242, 6);
+			// 
+			// mnuChangePlaybackIcon
+			// 
+			this.mnuChangePlaybackIcon.Name = "mnuChangePlaybackIcon";
+			this.mnuChangePlaybackIcon.Size = new System.Drawing.Size(245, 22);
+			this.mnuChangePlaybackIcon.Text = "Cambiar ícono...";
+			this.mnuChangePlaybackIcon.Click += new System.EventHandler(this.mnuChangePlaybackIcon_Click);
+			// 
+			// mnuRemovePlaybackIcon
+			// 
+			this.mnuRemovePlaybackIcon.Name = "mnuRemovePlaybackIcon";
+			this.mnuRemovePlaybackIcon.Size = new System.Drawing.Size(245, 22);
+			this.mnuRemovePlaybackIcon.Text = "Restaurar ícono original";
+			this.mnuRemovePlaybackIcon.Click += new System.EventHandler(this.mnuRemovePlaybackIcon_Click);
+			// 
+			// toolStripSeparator4
+			// 
+			this.toolStripSeparator4.Name = "toolStripSeparator4";
+			this.toolStripSeparator4.Size = new System.Drawing.Size(242, 6);
 			// 
 			// setHotKeyToolStripMenuItem1
 			// 
@@ -330,9 +366,13 @@
             this.mnuSetRecordingStartupDevice,
             this.toolStripSeparator3,
             this.mnuFavouriteRecordingDevice,
+            this.toolStripSeparatorIcon2,
+            this.mnuChangeRecordingIcon,
+            this.mnuRemoveRecordingIcon,
+            this.toolStripSeparator5,
             this.setHotKeyToolStripMenuItem});
 			this.recordingStrip.Name = "contextMenuStrip1";
-			this.recordingStrip.Size = new System.Drawing.Size(246, 120);
+			this.recordingStrip.Size = new System.Drawing.Size(246, 198);
 			this.recordingStrip.Opening += new System.ComponentModel.CancelEventHandler(this.recordingStrip_Opening);
 			// 
 			// mnuSetRecordingDefault
@@ -367,6 +407,30 @@
 			this.mnuFavouriteRecordingDevice.Size = new System.Drawing.Size(245, 22);
 			this.mnuFavouriteRecordingDevice.Text = "Favourite Device";
 			this.mnuFavouriteRecordingDevice.Click += new System.EventHandler(this.mnuFavouriteRecordingDevice_Click);
+			// 
+			// toolStripSeparatorIcon2
+			// 
+			this.toolStripSeparatorIcon2.Name = "toolStripSeparatorIcon2";
+			this.toolStripSeparatorIcon2.Size = new System.Drawing.Size(242, 6);
+			// 
+			// mnuChangeRecordingIcon
+			// 
+			this.mnuChangeRecordingIcon.Name = "mnuChangeRecordingIcon";
+			this.mnuChangeRecordingIcon.Size = new System.Drawing.Size(245, 22);
+			this.mnuChangeRecordingIcon.Text = "Cambiar ícono...";
+			this.mnuChangeRecordingIcon.Click += new System.EventHandler(this.mnuChangeRecordingIcon_Click);
+			// 
+			// mnuRemoveRecordingIcon
+			// 
+			this.mnuRemoveRecordingIcon.Name = "mnuRemoveRecordingIcon";
+			this.mnuRemoveRecordingIcon.Size = new System.Drawing.Size(245, 22);
+			this.mnuRemoveRecordingIcon.Text = "Restaurar ícono original";
+			this.mnuRemoveRecordingIcon.Click += new System.EventHandler(this.mnuRemoveRecordingIcon_Click);
+			// 
+			// toolStripSeparator5
+			// 
+			this.toolStripSeparator5.Name = "toolStripSeparator5";
+			this.toolStripSeparator5.Size = new System.Drawing.Size(242, 6);
 			// 
 			// setHotKeyToolStripMenuItem
 			// 
@@ -1130,7 +1194,16 @@
         private System.Windows.Forms.CheckBox chkNotifyUpdates;
         private System.Windows.Forms.PictureBox openControlPanelPlayback;
         private System.Windows.Forms.PictureBox openControlPanelRecording;
-		private System.Windows.Forms.CheckBox chkShowUnknownDevicesInHotkeyList;
-	}
+        private System.Windows.Forms.CheckBox chkShowUnknownDevicesInHotkeyList;
+        
+        // Nuevos elementos para íconos personalizados
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorIcon1;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorIcon2;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
+        private System.Windows.Forms.ToolStripMenuItem mnuChangePlaybackIcon;
+        private System.Windows.Forms.ToolStripMenuItem mnuRemovePlaybackIcon;
+        private System.Windows.Forms.ToolStripMenuItem mnuChangeRecordingIcon;
+        private System.Windows.Forms.ToolStripMenuItem mnuRemoveRecordingIcon;
+    }
 }
-

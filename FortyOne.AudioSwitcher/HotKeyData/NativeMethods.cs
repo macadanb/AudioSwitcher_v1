@@ -5,6 +5,18 @@ namespace FortyOne.AudioSwitcher.HotKeyData
 {
     internal static class NativeMethods
     {
+        // --- ADICIÓN PARA DETECCIÓN DE PULSACIÓN LARGA ---
+        public const int VK_LSHIFT = 0xA0;
+        public const int VK_RSHIFT = 0xA1;
+        public const int VK_LCONTROL = 0xA2;
+        public const int VK_RCONTROL = 0xA3;
+        public const int VK_LMENU = 0xA4; 
+        public const int VK_RMENU = 0xA5; 
+
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+        // ------------------------------------------------
+
         /// <summary>
         ///     Windows Event Messages sent to the WindowProc
         /// </summary>

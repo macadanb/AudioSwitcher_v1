@@ -1,43 +1,54 @@
-﻿using System;
-using System.Collections.Generic;
+﻿﻿using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using WindowsInput;
-using WindowsInput.Native;
 using AudioSwitcher.AudioApi;
 
 namespace FortyOne.AudioSwitcher.HotKeyData
 {
+    // NUEVA CLASE: Event Args personalizado para pasar el dispositivo que se debe activar
+    public class HotKeyPressedEventArgs : EventArgs
+    {
+        public Guid TargetDeviceId { get; private set; }
+        public bool IsLongPress { get; private set; }
+
+        public HotKeyPressedEventArgs(Guid targetDeviceId, bool isLongPress)
+        {
+            TargetDeviceId = targetDeviceId;
+            IsLongPress = isLongPress;
+        }
+    }
+
     public class HotKey : IDisposable
     {
-        /// <summary>
-        ///     Register a hotkey combination of one or more Modifers and a Key.
-        /// </summary>
-        /// <remarks>
-        ///     This method uses the values of the Modifiers and Key properties.  If
-        ///     Modifiers == Modifiers.None and Key = Keys.None then any current hotkey combination
-        ///     represented by this instance is deactivated.  Calling this method a subsequent time with
-        ///     a different combination will cause the current combination to be replaced and the new hotkey
-        ///     combination installed.  If the hotkey registration process fails (for example the hotkey combination
-        ///     is already registered) then a Win32Exception is thrown.
-        /// </remarks>
         public bool IsRegistered;
 
         public HotKey()
         {
             Modifiers = Modifiers.None;
             Key = Keys.None;
+            LongPressDelay = 500;
+            LongPressDeviceId = Guid.Empty;
         }
 
-        /// <summary>
-        ///     The deviceID the hot key is used for
-        /// </summary>
         public Guid DeviceId { get; set; }
+        public Guid LongPressDeviceId { get; set; }
+        public int LongPressDelay { get; set; }
 
         public IDevice Device
         {
             get { return AudioDeviceManager.Controller.GetDevice(DeviceId); }
+        }
+
+        // Propiedad para obtener el dispositivo de long press
+        public IDevice LongPressDevice
+        {
+            get 
+            { 
+                if (LongPressDeviceId == Guid.Empty)
+                    return null;
+                return AudioDeviceManager.Controller.GetDevice(LongPressDeviceId); 
+            }
         }
 
         public string DeviceName
@@ -69,38 +80,18 @@ namespace FortyOne.AudioSwitcher.HotKeyData
             }
         }
 
-        /// <summary>
-        ///     Get/Set the HotKeyNativeWindow instance used to capture WM_HOTKEY messages
-        ///     for this instance.
-        /// </summary>
         private HotKeyNativeWindow HotKeyWindow { get; set; }
-
-        /// <summary>
-        ///     Get/Set the modifier or modifers to use to activate this hotkey
-        /// </summary>
         public Modifiers Modifiers { get; set; }
-
-        /// <summary>
-        ///     Get/Set the virtual key code as the actual hotkey.
-        /// </summary>
-        /// <remarks>
-        ///     While it is possible to combine multiple keycodes together, it is likely that under
-        ///     many circumstances you will have an inoperative hotkey.  Also, you should not use any of the
-        ///     Keys modifier keys.
-        /// </remarks>
         public Keys Key { get; set; }
 
         public void Dispose()
         {
-            // unregister the current hotkey...
             if (HotKeyWindow != null)
                 HotKeyWindow.UnregisterHotkey();
         }
 
-        /// <summary>
-        ///     Event fired when this instance receives a WM_HOTKEY message.
-        /// </summary>
-        public event EventHandler HotKeyPressed;
+        // MODIFICADO: Ahora el evento usa la nueva clase HotKeyPressedEventArgs
+        public event EventHandler<HotKeyPressedEventArgs> HotKeyPressed;
 
         public bool RegisterHotkey()
         {
@@ -134,16 +125,6 @@ namespace FortyOne.AudioSwitcher.HotKeyData
             return IsRegistered;
         }
 
-        /// <summary>
-        ///     Register a hotkey combination of one or more Modifers and a Key.
-        /// </summary>
-        /// <param name="modifiers">The modifier or modifiers to use to activate the hotkey</param>
-        /// <param name="key">The actual hotkey value</param>
-        /// <remarks>
-        ///     This method uses the values of the modifers and key parameters to set the Modifiers and Key properties, and
-        ///     then delegates to the RegisterHotkey() function.  See remarks for that function to understand the behavior of
-        ///     this method.
-        /// </remarks>
         public void RegisterHotkey(Modifiers modifiers, Keys key)
         {
             Modifiers = modifiers;
@@ -159,9 +140,6 @@ namespace FortyOne.AudioSwitcher.HotKeyData
             IsRegistered = false;
         }
 
-        /// <summary>
-        /// </summary>
-        /// <param name="hWnd">The handle of the window to force to the front.</param>
         public void ActivateWindow(IntPtr hWnd)
         {
             var hForeground = NativeMethods.GetForegroundWindow();
@@ -192,19 +170,13 @@ namespace FortyOne.AudioSwitcher.HotKeyData
             }
         }
 
-        /// <summary>
-        ///     Raises the HotkeyPressed event on WM_HOTKEY notification
-        /// </summary>
-        protected virtual void OnHotKey()
+        // MODIFICADO: El evento OnHotKey ahora recibe el targetDeviceId y si es long press
+        protected virtual void OnHotKey(Guid targetDeviceId, bool isLongPress)
         {
             if (HotKeyPressed != null)
-                HotKeyPressed(this, new EventArgs());
+                HotKeyPressed(this, new HotKeyPressedEventArgs(targetDeviceId, isLongPress));
         }
 
-        /// <summary>
-        ///     Handles the capturing of the WM_HOTKEY messages as well as registering/unregistering
-        ///     the hotkey via Win32 API.
-        /// </summary>
         private class HotKeyNativeWindow : NativeWindow
         {
             private const int WM_HOTKEY = 0x312;
@@ -213,20 +185,27 @@ namespace FortyOne.AudioSwitcher.HotKeyData
             public HotKeyNativeWindow(HotKey owner)
             {
                 Owner = owner;
+                _pollTimer = new Timer();
+                _pollTimer.Interval = 20;
+                _pollTimer.Tick += PollTimer_Tick;
             }
 
             private HotKey Owner { get; set; }
             private short HotKeyID { get; set; }
+            private bool _isProcessing;
+            private bool _isLongPressTriggered;
+            private Timer _pollTimer;
+            private DateTime _pressStartTime;
+            private bool _isWaiting;
 
             ~HotKeyNativeWindow()
             {
                 try
                 {
                     UnregisterHotkey();
+                    _pollTimer?.Dispose();
                 }
-                catch
-                {
-                }
+                catch { }
             }
 
             public override void DestroyHandle()
@@ -248,7 +227,7 @@ namespace FortyOne.AudioSwitcher.HotKeyData
                     if (HotKeyID == 0)
                         HotKeyID = NativeMethods.GlobalAddAtom(Guid.NewGuid().ToString("N"));
 
-                    if (!NativeMethods.RegisterHotKey(Handle, HotKeyID, (int) Owner.Modifiers, (int) Owner.Key))
+                    if (!NativeMethods.RegisterHotKey(Handle, HotKeyID, (int)Owner.Modifiers, (int)Owner.Key))
                     {
                         throw new Win32Exception(Marshal.GetLastWin32Error());
                     }
@@ -263,6 +242,8 @@ namespace FortyOne.AudioSwitcher.HotKeyData
                     NativeMethods.GlobalDeleteAtom(HotKeyID);
                     HotKeyID = 0;
                 }
+                _pollTimer.Stop();
+                _isWaiting = false;
             }
 
             private bool HandleCreated()
@@ -283,36 +264,98 @@ namespace FortyOne.AudioSwitcher.HotKeyData
                 return (Handle != IntPtr.Zero);
             }
 
+            private void PollTimer_Tick(object sender, EventArgs e)
+            {
+                if (!_isWaiting)
+                    return;
+
+                int vk = (int)Owner.Key;
+                bool keyIsDown = (NativeMethods.GetAsyncKeyState(vk) & 0x8000) != 0;
+
+                if (keyIsDown)
+                {
+                    // Tecla aún presionada - verificar si alcanzó long press
+                    if (!_isLongPressTriggered && 
+                        Owner.LongPressDeviceId != Guid.Empty && 
+                        (DateTime.Now - _pressStartTime).TotalMilliseconds >= Owner.LongPressDelay)
+                    {
+                        _isLongPressTriggered = true;
+                        ExecuteHotKey(true);
+                    }
+                }
+                else
+                {
+                    // Tecla liberada
+                    _pollTimer.Stop();
+                    _isWaiting = false;
+
+                    if (!_isLongPressTriggered && !_isProcessing)
+                    {
+                        // Single tap
+                        ExecuteHotKey(false);
+                    }
+                    _isLongPressTriggered = false;
+                }
+            }
+
+            // MODIFICADO: Ahora ejecuta el hotkey pasando el targetDeviceId correcto
+            private void ExecuteHotKey(bool isLongPress)
+            {
+                if (_isProcessing)
+                    return;
+
+                _isProcessing = true;
+
+                try
+                {
+                    Guid targetDeviceId;
+                    if (isLongPress && Owner.LongPressDeviceId != Guid.Empty)
+                        targetDeviceId = Owner.LongPressDeviceId;
+                    else
+                        targetDeviceId = Owner.DeviceId;
+
+                    // Ya no cambiamos temporalmente Owner.DeviceId
+                    // Simplemente pasamos el targetDeviceId directamente al evento
+                    Owner.OnHotKey(targetDeviceId, isLongPress);
+                }
+                finally
+                {
+                    _isProcessing = false;
+                }
+            }
+
             protected override void WndProc(ref Message m)
             {
-                // handle a hotkey event..
                 if (m.Msg == WM_HOTKEY)
                 {
-                    Owner.OnHotKey();
-                    UnregisterHotkey();
+                    if (_isProcessing || _isWaiting)
+                    {
+                        base.WndProc(ref m);
+                        return;
+                    }
 
-                    var input = new InputSimulator();
+                    int vk = (int)Owner.Key;
+                    bool keyIsDown = (NativeMethods.GetAsyncKeyState(vk) & 0x8000) != 0;
 
-                    var mods = new List<VirtualKeyCode>();
-
-                    if (Owner.Modifiers == Modifiers.Shift)
-                        mods.Add(VirtualKeyCode.SHIFT);
-
-                    if (Owner.Modifiers == Modifiers.Control)
-                        mods.Add(VirtualKeyCode.CONTROL);
-
-                    if (Owner.Modifiers == Modifiers.Alt)
-                        mods.Add(VirtualKeyCode.LMENU);
-
-                    if (Owner.Modifiers == Modifiers.Win)
-                        mods.Add(VirtualKeyCode.LWIN);
-
-                    if (mods.Count > 0)
-                        input.Keyboard.ModifiedKeyStroke(mods, (VirtualKeyCode) Owner.Key);
-                    else
-                        input.Keyboard.KeyPress((VirtualKeyCode) Owner.Key);
-
-                    RegisterHotkey();
+                    if (keyIsDown)
+                    {
+                        // Tecla presionada - iniciar polling
+                        _isWaiting = true;
+                        _isLongPressTriggered = false;
+                        _pressStartTime = DateTime.Now;
+                        
+                        if (Owner.LongPressDeviceId == Guid.Empty || Owner.LongPressDelay <= 0)
+                        {
+                            // Sin long press configurado, ejecutar inmediatamente
+                            _isWaiting = false;
+                            ExecuteHotKey(false);
+                        }
+                        else
+                        {
+                            // Iniciar polling
+                            _pollTimer.Start();
+                        }
+                    }
                 }
 
                 base.WndProc(ref m);

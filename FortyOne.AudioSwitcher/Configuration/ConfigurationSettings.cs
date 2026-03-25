@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -27,6 +27,8 @@ namespace FortyOne.AudioSwitcher.Configuration
         public const string SETTING_SHOWDISCONNECTEDDDEVICES = "ShowDisconnectedDevices";
         public const string SETTING_SHOWDPDEVICEIICONINTRAY = "ShowDPDeviceIconInTray";
         public const string SETTING_UPDATE_NOTIFICATIONS_ENABLED = "UpdateNotificationsEnabled";
+        public const string SETTING_CUSTOM_ICONS = "CustomIcons"; // Nuevo: íconos personalizados por dispositivo
+        
         private readonly ISettingsSource _configWriter;
 
         public ConfigurationSettings(ISettingsSource source)
@@ -157,6 +159,13 @@ namespace FortyOne.AudioSwitcher.Configuration
         {
             get { return _configWriter.Get(SETTING_HOTKEYS); }
             set { _configWriter.Set(SETTING_HOTKEYS, value); }
+        }
+
+        // Nuevo: Propiedad para íconos personalizados
+        public string CustomIcons
+        {
+            get { return _configWriter.Get(SETTING_CUSTOM_ICONS); }
+            set { _configWriter.Set(SETTING_CUSTOM_ICONS, value); }
         }
 
         public bool CloseToTray
@@ -300,6 +309,10 @@ namespace FortyOne.AudioSwitcher.Configuration
 
             if (!SettingExists(SETTING_UPDATE_NOTIFICATIONS_ENABLED))
                 UpdateNotificationsEnabled = PollForUpdates > 0;
+                
+            // Nuevo: Crear valor por defecto para íconos personalizados
+            if (!SettingExists(SETTING_CUSTOM_ICONS))
+                CustomIcons = "";
         }
 
         public void LoadFrom(ConfigurationSettings otherSettings)
@@ -321,6 +334,7 @@ namespace FortyOne.AudioSwitcher.Configuration
             StartupRecordingDeviceID = otherSettings.StartupRecordingDeviceID;
             WindowHeight = otherSettings.WindowHeight;
             WindowWidth = otherSettings.WindowWidth;
+            CustomIcons = otherSettings.CustomIcons; // Nuevo: cargar íconos personalizados
         }
 
         public bool SettingExists(string name)

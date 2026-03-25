@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -31,6 +31,10 @@ namespace FortyOne.AudioSwitcher
 
         private static AudioSwitcher _instance;
         private readonly Icon _originalTrayIcon;
+        private Icon _defaultFallbackIcon;
+
+        // Diccionario para almacenar íconos personalizados por GUID del dispositivo
+        private Dictionary<Guid, string> _customIcons = new Dictionary<Guid, string>();
 
         private readonly Dictionary<DeviceIcon, string> ICON_MAP = new Dictionary<DeviceIcon, string>
         {
@@ -63,6 +67,9 @@ namespace FortyOne.AudioSwitcher
         private AudioSwitcherVersionInfo _retrievedVersion;
         private bool _updateAvailable;
         public bool DisableHotKeyFunction = false;
+        
+        private DateTime _lastDeviceChangeTime = DateTime.MinValue;
+        private readonly TimeSpan _minChangeInterval = TimeSpan.FromMilliseconds(80);
 
         public AudioSwitcher()
         {
@@ -71,7 +78,6 @@ namespace FortyOne.AudioSwitcher
 
             try
             {
-                //try make it look pretty
                 SetWindowTheme(listBoxPlayback.Handle, "Explorer", null);
                 SetWindowTheme(listBoxRecording.Handle, "Explorer", null);
             }
@@ -79,11 +85,13 @@ namespace FortyOne.AudioSwitcher
             {
             }
 
-            lblVersion.Text = "Version: " + AssemblyVersion;
+            lblVersion.Text = "Version: 2.2 de Macadan basada en la original cuya version es:" + AssemblyVersion;
             lblCopyright.Text = AssemblyCopyright;
 
             _originalTrayIcon = new Icon(notifyIcon1.Icon, 32, 32);
+            _defaultFallbackIcon = GetDefaultFallbackIcon();
 
+            LoadCustomIcons(); // Cargar íconos personalizados guardados
             LoadSettings();
 
             AudioDeviceManager.Controller.AudioDeviceChanged.Subscribe(AudioDeviceManager_AudioDeviceChanged);
@@ -91,7 +99,6 @@ namespace FortyOne.AudioSwitcher
             HotKeyManager.HotKeyPressed += HotKeyManager_HotKeyPressed;
             hotKeyBindingSource.DataSource = HotKeyManager.HotKeys;
 
-            //Heartbeat
             Task.Factory.StartNew(CheckForNewVersion);
 
             MinimizeFootprint();
@@ -133,7 +140,7 @@ namespace FortyOne.AudioSwitcher
                 }
                 catch
                 {
-                } // rubbish error
+                }
             }
         }
 
@@ -141,8 +148,7 @@ namespace FortyOne.AudioSwitcher
         {
             get
             {
-                var attributes =
-                    Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyTitleAttribute), false);
+                var attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyTitleAttribute), false);
                 if (attributes.Length > 0)
                 {
                     var titleAttribute = (AssemblyTitleAttribute)attributes[0];
@@ -164,8 +170,7 @@ namespace FortyOne.AudioSwitcher
         {
             get
             {
-                var attributes =
-                    Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyDescriptionAttribute), false);
+                var attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyDescriptionAttribute), false);
                 if (attributes.Length == 0)
                 {
                     return "";
@@ -178,8 +183,7 @@ namespace FortyOne.AudioSwitcher
         {
             get
             {
-                var attributes =
-                    Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyProductAttribute), false);
+                var attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyProductAttribute), false);
                 if (attributes.Length == 0)
                 {
                     return "";
@@ -192,8 +196,7 @@ namespace FortyOne.AudioSwitcher
         {
             get
             {
-                var attributes =
-                    Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyCopyrightAttribute), false);
+                var attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyCopyrightAttribute), false);
                 if (attributes.Length == 0)
                 {
                     return "";
@@ -206,8 +209,7 @@ namespace FortyOne.AudioSwitcher
         {
             get
             {
-                var attributes =
-                    Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyCompanyAttribute), false);
+                var attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyCompanyAttribute), false);
                 if (attributes.Length == 0)
                 {
                     return "";
@@ -360,7 +362,6 @@ namespace FortyOne.AudioSwitcher
                 return;
 
             var id = SelectedPlaybackDevice.Id;
-            //if checked then we need to remove
 
             if (mnuFavouritePlaybackDevice.Checked)
                 FavouriteDeviceManager.RemoveFavouriteDevice(SelectedPlaybackDevice.Id);
@@ -468,7 +469,6 @@ namespace FortyOne.AudioSwitcher
                         }
                         catch
                         {
-                            // ignored
                         }
                     }
                 }
@@ -632,7 +632,6 @@ namespace FortyOne.AudioSwitcher
         {
             Program.Settings.ShowDisabledDevices = chkShowDiabledDevices.Checked;
 
-            //Set, or remove the disconnected filter
             if (Program.Settings.ShowDisabledDevices)
                 _deviceStateFilter |= DeviceState.Disabled;
             else
@@ -652,7 +651,6 @@ namespace FortyOne.AudioSwitcher
         {
             Program.Settings.ShowDisconnectedDevices = chkShowDisconnectedDevices.Checked;
 
-            //Set, or remove the disconnected filter
             if (Program.Settings.ShowDisconnectedDevices)
                 _deviceStateFilter |= DeviceState.Unplugged;
             else
@@ -757,7 +755,6 @@ namespace FortyOne.AudioSwitcher
 
         private void LoadSettings()
         {
-            //Fix to stop the registry thing being removed and not re-added
             Program.Settings.AutoStartWithWindows = Program.Settings.AutoStartWithWindows;
 
             chkCloseToTray.Checked = Program.Settings.CloseToTray;
@@ -769,7 +766,7 @@ namespace FortyOne.AudioSwitcher
             chkNotifyUpdates.Checked = Program.Settings.UpdateNotificationsEnabled;
 
             chkShowDiabledDevices.Checked = Program.Settings.ShowDisabledDevices;
-	        chkShowUnknownDevicesInHotkeyList.Checked = Program.Settings.ShowUnknownDevicesInHotkeyList;
+            chkShowUnknownDevicesInHotkeyList.Checked = Program.Settings.ShowUnknownDevicesInHotkeyList;
             chkShowDisconnectedDevices.Checked = Program.Settings.ShowDisconnectedDevices;
             chkShowDPDeviceIconInTray.Checked = Program.Settings.ShowDPDeviceIconInTray;
 
@@ -790,27 +787,283 @@ namespace FortyOne.AudioSwitcher
                 return Guid.Empty;
             }));
 
-            //Ensure to delete the key if it's not set
             Program.Settings.AutoStartWithWindows = Program.Settings.AutoStartWithWindows;
 
             if (Program.Settings.ShowDisabledDevices)
                 _deviceStateFilter |= DeviceState.Disabled;
 
-
             if (Program.Settings.ShowDisconnectedDevices)
                 _deviceStateFilter |= DeviceState.Unplugged;
         }
 
-        //Subscribe to favourite devices changing to save it to the configuration file instantly
         private void AudioDeviceManger_FavouriteDevicesChanged(List<Guid> IDs)
         {
             Program.Settings.FavouriteDevices = "[" + string.Join("],[", IDs.ToArray()) + "]";
         }
 
+        private Icon GetDefaultFallbackIcon()
+        {
+            try
+            {
+                return IconExtractor.Extract(Environment.ExpandEnvironmentVariables("%windir%\\system32\\mmres.dll"), -3013, true);
+            }
+            catch
+            {
+                try
+                {
+                    return SystemIcons.Application;
+                }
+                catch
+                {
+                    return new Icon(typeof(AudioSwitcher), "default.ico");
+                }
+            }
+        }
+
+        // ==================== MÉTODOS PARA ÍCONOS PERSONALIZADOS ====================
+
+        /// <summary>
+        /// Carga los íconos personalizados guardados en la configuración
+        /// </summary>
+        private void LoadCustomIcons()
+        {
+            try
+            {
+                _customIcons.Clear();
+                string iconsData = Program.Settings.CustomIcons;
+                if (string.IsNullOrEmpty(iconsData))
+                    return;
+
+                // Formato: "GUID1|ruta1;GUID2|ruta2"
+                string[] entries = iconsData.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string entry in entries)
+                {
+                    string[] parts = entry.Split('|');
+                    if (parts.Length == 2)
+                    {
+                        if (Guid.TryParse(parts[0], out Guid deviceId))
+                        {
+                            _customIcons[deviceId] = parts[1];
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Guarda los íconos personalizados en la configuración
+        /// </summary>
+        private void SaveCustomIcons()
+        {
+            try
+            {
+                var entries = new List<string>();
+                foreach (var kvp in _customIcons)
+                {
+                    if (!string.IsNullOrEmpty(kvp.Value))
+                    {
+                        entries.Add($"{kvp.Key}|{kvp.Value}");
+                    }
+                }
+                Program.Settings.CustomIcons = string.Join(";", entries);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Establece un ícono personalizado para un dispositivo
+        /// </summary>
+        private void SetCustomIcon(Guid deviceId, string iconPath)
+        {
+            if (string.IsNullOrEmpty(iconPath))
+            {
+                if (_customIcons.ContainsKey(deviceId))
+                    _customIcons.Remove(deviceId);
+            }
+            else
+            {
+                _customIcons[deviceId] = iconPath;
+            }
+            SaveCustomIcons();
+        }
+
+        /// <summary>
+        /// Obtiene la ruta del ícono personalizado para un dispositivo, o null si no tiene
+        /// </summary>
+        private string GetCustomIconPath(Guid deviceId)
+        {
+            if (_customIcons.TryGetValue(deviceId, out string path))
+                return path;
+            return null;
+        }
+
+        /// <summary>
+        /// Muestra el diálogo para seleccionar un ícono personalizado
+        /// </summary>
+        private void ChangeCustomIcon(IDevice device)
+        {
+            if (device == null) return;
+
+            using (var openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Title = $"Seleccionar ícono para {device.Name}";
+                openFileDialog.Filter = "Archivos de ícono (*.ico)|*.ico|Todos los archivos (*.*)|*.*";
+                openFileDialog.FilterIndex = 1;
+
+                if (openFileDialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    SetCustomIcon(device.Id, openFileDialog.FileName);
+                    
+                    // Limpiar el caché de imágenes para forzar regeneración
+                    lock (imageList1)
+                    {
+                        imageList1.Images.Clear();
+                    }
+                    
+                    RefreshPlaybackDevices();
+                    RefreshRecordingDevices();
+                    RefreshNotifyIconItems();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Elimina el ícono personalizado de un dispositivo
+        /// </summary>
+        private void RemoveCustomIcon(IDevice device)
+        {
+            if (device == null) return;
+
+            if (_customIcons.ContainsKey(device.Id))
+            {
+                SetCustomIcon(device.Id, null);
+                
+                // Limpiar el caché de imágenes para forzar regeneración
+                lock (imageList1)
+                {
+                    imageList1.Images.Clear();
+                }
+                
+                RefreshPlaybackDevices();
+                RefreshRecordingDevices();
+                RefreshNotifyIconItems();
+            }
+        }
+
+        // Método mejorado para extraer íconos - Versión con clave única (CORREGIDO)
+        private Icon ExtractIconFromPath(string path, Guid deviceId)
+        {
+            // Verificar si hay ícono personalizado para este dispositivo
+            string customIconPath = GetCustomIconPath(deviceId);
+            if (!string.IsNullOrEmpty(customIconPath))
+            {
+                try
+                {
+                    string expandedPath = Environment.ExpandEnvironmentVariables(customIconPath);
+                    expandedPath = expandedPath.Trim().Trim('"');
+                    
+                    if (File.Exists(expandedPath))
+                    {
+                        using (var fs = new FileStream(expandedPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        {
+                            return new Icon(fs);
+                        }
+                    }
+                    else
+                    {
+                        var iconParts = expandedPath.Split(',');
+                        if (iconParts.Length >= 2)
+                        {
+                            string dllPath = iconParts[0].Trim();
+                            int index;
+                            if (int.TryParse(iconParts[1].Trim(), out index))
+                            {
+                                return IconExtractor.Extract(dllPath, index, true);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error loading custom icon: {ex.Message}");
+                }
+            }
+            
+            // Si no hay ícono personalizado, usar el método original
+            try
+            {
+                if (!string.IsNullOrEmpty(path))
+                {
+                    string expandedPath = Environment.ExpandEnvironmentVariables(path);
+                    expandedPath = expandedPath.Trim().Trim('"');
+                    
+                    if (File.Exists(expandedPath))
+                    {
+                        using (var fs = new FileStream(expandedPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        {
+                            return new Icon(fs);
+                        }
+                    }
+                    
+                    var iconParts = expandedPath.Split(',');
+                    if (iconParts.Length >= 2)
+                    {
+                        string dllPath = iconParts[0].Trim();
+                        int index;
+                        if (int.TryParse(iconParts[1].Trim(), out index))
+                        {
+                            // Líneas problemáticas ELIMINADAS - ya no convertimos índices
+                            try
+                            {
+                                return IconExtractor.Extract(dllPath, index, true);
+                            }
+                            catch
+                            {
+                                return IconExtractor.Extract(dllPath, index, false);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            
+            try
+            {
+                return IconExtractor.Extract(Environment.ExpandEnvironmentVariables("%windir%\\system32\\mmres.dll"), -3013, true);
+            }
+            catch
+            {
+                return _defaultFallbackIcon;
+            }
+        }
+
+        // ==================== FIN MÉTODOS ÍCONOS PERSONALIZADOS ====================
+
         private void RefreshPlaybackDevices()
         {
             listBoxPlayback.SuspendLayout();
             listBoxPlayback.Items.Clear();
+
+            lock (imageList1)
+            {
+                if (!imageList1.Images.Keys.Contains("unknown"))
+                {
+                    try
+                    {
+                        using (var bmp = _defaultFallbackIcon.ToBitmap())
+                        {
+                            imageList1.Images.Add("unknown", bmp);
+                        }
+                    }
+                    catch
+                    {
+                        var emptyBmp = new Bitmap(32, 32);
+                        imageList1.Images.Add("unknown", emptyBmp);
+                    }
+                }
+            }
+
             foreach (var ad in AudioDeviceManager.Controller.GetPlaybackDevices(_deviceStateFilter).ToList())
             {
                 var li = new ListViewItem();
@@ -869,42 +1122,63 @@ namespace FortyOne.AudioSwitcher
                         imageMod += "c";
                     }
 
+                    // Generar clave única incluyendo si tiene ícono personalizado
                     var imageToGen = imageKey + imageMod;
-
-                    if (!imageList1.Images.Keys.Contains(imageToGen))
+                    string customIconPath = GetCustomIconPath(ad.Id);
+                    
+                    if (!string.IsNullOrEmpty(customIconPath))
                     {
-                        Image i;
-                        using (var icon = ExtractIconFromPath(ad.IconPath))
+                        // Usar un hash de la ruta para evitar conflictos
+                        int hash = customIconPath.GetHashCode();
+                        imageToGen = "custom_" + hash.ToString() + "_" + imageMod;
+                    }
+                    else if (string.IsNullOrEmpty(imageKey))
+                    {
+                        imageToGen = "unknown" + imageMod;
+                    }
+
+                    lock (imageList1)
+                    {
+                        if (!imageList1.Images.Keys.Contains(imageToGen))
                         {
-                            i = icon.ToBitmap();
+                            Image i;
+                            using (var icon = ExtractIconFromPath(ad.IconPath, ad.Id))
+                            {
+                                if (icon != null)
+                                    i = icon.ToBitmap();
+                                else
+                                    i = _defaultFallbackIcon.ToBitmap();
+                            }
+
+                            if (ad.State == DeviceState.Disabled || ad.State == DeviceState.Unplugged)
+                                i = ImageHelper.SetImageOpacity(i, 0.5F);
+
+                            using (var g = Graphics.FromImage(i))
+                            {
+                                if (imageMod.Contains("f"))
+                                {
+                                    g.DrawImage(Resources.f, i.Width - 12, 0);
+                                }
+
+                                if (imageMod.Contains("c"))
+                                {
+                                    g.DrawImage(Resources.c, i.Width - 12, i.Height - 12);
+                                }
+
+                                if (imageMod.Contains("e"))
+                                {
+                                    g.DrawImage(Resources.e, i.Width - 12, i.Height - 12);
+                                }
+                            }
+
+                            imageList1.Images.Add(imageToGen, i);
                         }
-
-                        if (ad.State == DeviceState.Disabled || ad.State == DeviceState.Unplugged)
-                            i = ImageHelper.SetImageOpacity(i, 0.5F);
-
-                        using (var g = Graphics.FromImage(i))
-                        {
-                            if (imageMod.Contains("f"))
-                            {
-                                g.DrawImage(Resources.f, i.Width - 12, 0);
-                            }
-
-                            if (imageMod.Contains("c"))
-                            {
-                                g.DrawImage(Resources.c, i.Width - 12, i.Height - 12);
-                            }
-
-                            if (imageMod.Contains("e"))
-                            {
-                                g.DrawImage(Resources.e, i.Width - 12, i.Height - 12);
-                            }
-                        }
-
-                        imageList1.Images.Add(imageToGen, i);
                     }
 
                     if (imageList1.Images.IndexOfKey(imageToGen) >= 0)
                         li.ImageKey = imageToGen;
+                    else
+                        li.ImageKey = "unknown";
                 }
                 catch
                 {
@@ -918,31 +1192,29 @@ namespace FortyOne.AudioSwitcher
             listBoxPlayback.ResumeLayout();
         }
 
-        private static Icon ExtractIconFromPath(string path)
-        {
-            try
-            {
-                var iconPath = path.Split(',');
-                Icon icon;
-                if (iconPath.Length == 2)
-                    icon = IconExtractor.Extract(Environment.ExpandEnvironmentVariables(iconPath[0]),
-                        Int32.Parse(iconPath[1]), true);
-                else
-                    icon = new Icon(iconPath[0]);
-
-                return icon;
-            }
-            catch
-            {
-                //return a digital as a place holder
-                return IconExtractor.Extract(Environment.ExpandEnvironmentVariables("%windir%\\system32\\mmres.dll"), -3013, true);
-            }
-        }
-
         private void RefreshRecordingDevices()
         {
             listBoxRecording.SuspendLayout();
             listBoxRecording.Items.Clear();
+
+            lock (imageList1)
+            {
+                if (!imageList1.Images.Keys.Contains("unknown"))
+                {
+                    try
+                    {
+                        using (var bmp = _defaultFallbackIcon.ToBitmap())
+                        {
+                            imageList1.Images.Add("unknown", bmp);
+                        }
+                    }
+                    catch
+                    {
+                        var emptyBmp = new Bitmap(32, 32);
+                        imageList1.Images.Add("unknown", emptyBmp);
+                    }
+                }
+            }
 
             foreach (var ad in AudioDeviceManager.Controller.GetCaptureDevices(_deviceStateFilter).ToList())
             {
@@ -987,7 +1259,6 @@ namespace FortyOne.AudioSwitcher
                         li.SubItems.Add(new ListViewItem.ListViewSubItem(li, caption));
                     }
 
-
                     if (ad.State != DeviceState.Unplugged && FavouriteDeviceManager.IsFavouriteDevice(ad))
                     {
                         imageMod += "f";
@@ -1003,41 +1274,60 @@ namespace FortyOne.AudioSwitcher
                     }
 
                     var imageToGen = imageKey + imageMod;
-
-                    if (!imageList1.Images.Keys.Contains(imageToGen))
+                    string customIconPath = GetCustomIconPath(ad.Id);
+                    
+                    if (!string.IsNullOrEmpty(customIconPath))
                     {
-                        Image i;
-                        using (var icon = ExtractIconFromPath(ad.IconPath))
+                        int hash = customIconPath.GetHashCode();
+                        imageToGen = "custom_" + hash.ToString() + "_" + imageMod;
+                    }
+                    else if (string.IsNullOrEmpty(imageKey))
+                    {
+                        imageToGen = "unknown" + imageMod;
+                    }
+
+                    lock (imageList1)
+                    {
+                        if (!imageList1.Images.Keys.Contains(imageToGen))
                         {
-                            i = icon.ToBitmap();
+                            Image i;
+                            using (var icon = ExtractIconFromPath(ad.IconPath, ad.Id))
+                            {
+                                if (icon != null)
+                                    i = icon.ToBitmap();
+                                else
+                                    i = _defaultFallbackIcon.ToBitmap();
+                            }
+
+                            if (ad.State.HasFlag(DeviceState.Disabled) || ad.State == DeviceState.Unplugged)
+                                i = ImageHelper.SetImageOpacity(i, 0.5F);
+
+                            using (var g = Graphics.FromImage(i))
+                            {
+                                if (imageMod.Contains("f"))
+                                {
+                                    g.DrawImage(Resources.f, i.Width - 12, 0);
+                                }
+
+                                if (imageMod.Contains("c"))
+                                {
+                                    g.DrawImage(Resources.c, i.Width - 12, i.Height - 12);
+                                }
+
+                                if (imageMod.Contains("e"))
+                                {
+                                    g.DrawImage(Resources.e, i.Width - 12, i.Height - 12);
+                                }
+                            }
+
+                            imageList1.Images.Add(imageToGen, i);
                         }
-
-                        if (ad.State.HasFlag(DeviceState.Disabled) || ad.State == DeviceState.Unplugged)
-                            i = ImageHelper.SetImageOpacity(i, 0.5F);
-
-                        using (var g = Graphics.FromImage(i))
-                        {
-                            if (imageMod.Contains("f"))
-                            {
-                                g.DrawImage(Resources.f, i.Width - 12, 0);
-                            }
-
-                            if (imageMod.Contains("c"))
-                            {
-                                g.DrawImage(Resources.c, i.Width - 12, i.Height - 12);
-                            }
-
-                            if (imageMod.Contains("e"))
-                            {
-                                g.DrawImage(Resources.e, i.Width - 12, i.Height - 12);
-                            }
-                        }
-
-                        imageList1.Images.Add(imageToGen, i);
                     }
 
                     if (imageList1.Images.IndexOfKey(imageToGen) >= 0)
                         li.ImageKey = imageToGen;
+                    else
+                        li.ImageKey = "unknown";
                 }
                 catch
                 {
@@ -1110,7 +1400,6 @@ namespace FortyOne.AudioSwitcher
             var defaultDevice = AudioDeviceManager.Controller.DefaultPlaybackDevice;
             var notifyText = "Audio Switcher";
 
-            //The maximum length of the noitfy text is 64 characters. This keeps it under
             if (defaultDevice != null)
             {
                 var devName = defaultDevice.FullName ?? defaultDevice.Name ?? notifyText;
@@ -1132,9 +1421,17 @@ namespace FortyOne.AudioSwitcher
             var oldIcon = notifyIcon1.Icon;
 
             if (defaultDevice != null && Program.Settings.ShowDPDeviceIconInTray)
-                notifyIcon1.Icon = ExtractIconFromPath(defaultDevice.IconPath);
+            {
+                var icon = ExtractIconFromPath(defaultDevice.IconPath, defaultDevice.Id);
+                if (icon != null)
+                    notifyIcon1.Icon = icon;
+                else
+                    notifyIcon1.Icon = _originalTrayIcon;
+            }
             else
+            {
                 notifyIcon1.Icon = _originalTrayIcon;
+            }
 
             if (oldIcon.Handle != _originalTrayIcon.Handle)
                 oldIcon.Dispose();
@@ -1282,23 +1579,30 @@ namespace FortyOne.AudioSwitcher
             PostRecordingMenuClick(id);
         }
 
-        private async void HotKeyManager_HotKeyPressed(object sender, EventArgs e)
+        private async void HotKeyManager_HotKeyPressed(object sender, HotKeyPressedEventArgs e)
         {
-            //Double check here before handling
             if (DisableHotKeyFunction || Program.Settings.DisableHotKeys)
                 return;
 
-            if (sender is HotKey)
+            if (sender is HotKey hk)
             {
-                var hk = sender as HotKey;
+                IDevice targetDevice = AudioDeviceManager.Controller.GetDevice(e.TargetDeviceId);
 
-                if (hk.Device == null || hk.Device.IsDefaultDevice)
+                if (targetDevice == null || targetDevice.IsDefaultDevice)
                     return;
 
-                await hk.Device.SetAsDefaultAsync();
+                var now = DateTime.Now;
+                if ((now - _lastDeviceChangeTime) < _minChangeInterval)
+                {
+                    return;
+                }
+
+                _lastDeviceChangeTime = now;
+
+                await targetDevice.SetAsDefaultAsync();
 
                 if (Program.Settings.DualSwitchMode)
-                    await hk.Device.SetAsDefaultCommunicationsAsync();
+                    await targetDevice.SetAsDefaultCommunicationsAsync();
             }
         }
 
@@ -1324,8 +1628,6 @@ namespace FortyOne.AudioSwitcher
 
         private void Form1_Activated(object sender, EventArgs e)
         {
-            //RefreshPlaybackDevices();
-            //RefreshRecordingDevices();
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1429,7 +1731,6 @@ namespace FortyOne.AudioSwitcher
             }
             catch
             {
-                //Ignored, something went wrong when trying to open CPL
             }
         }
 
@@ -1441,7 +1742,6 @@ namespace FortyOne.AudioSwitcher
             }
             catch
             {
-                //Ignored, something went wrong when trying to open CPL
             }
         }
 
@@ -1465,18 +1765,56 @@ namespace FortyOne.AudioSwitcher
             PostRecordingMenuClick(id);
         }
 
-		private void chkShowUnknownDevicesInHotkeyList_CheckedChanged(object sender, EventArgs e)
-		{
-			Program.Settings.ShowUnknownDevicesInHotkeyList = chkShowUnknownDevicesInHotkeyList.Checked;
+        private void chkShowUnknownDevicesInHotkeyList_CheckedChanged(object sender, EventArgs e)
+        {
+            Program.Settings.ShowUnknownDevicesInHotkeyList = chkShowUnknownDevicesInHotkeyList.Checked;
 
-			if (IsHandleCreated)
-			{
-				BeginInvoke((Action)(() =>
-				{
-					HotKeyManager.RefreshHotkeys();
-					RefreshGrid();
-				}));
-			}
-		}
-	}
+            if (IsHandleCreated)
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    HotKeyManager.RefreshHotkeys();
+                    RefreshGrid();
+                }));
+            }
+        }
+
+        // ==================== EVENTOS PARA CAMBIAR ÍCONO ====================
+
+        /// <summary>
+        /// Manejador para cambiar ícono desde el menú contextual de Playback
+        /// </summary>
+        private void mnuChangePlaybackIcon_Click(object sender, EventArgs e)
+        {
+            if (SelectedPlaybackDevice != null)
+                ChangeCustomIcon(SelectedPlaybackDevice);
+        }
+
+        /// <summary>
+        /// Manejador para eliminar ícono personalizado desde el menú contextual de Playback
+        /// </summary>
+        private void mnuRemovePlaybackIcon_Click(object sender, EventArgs e)
+        {
+            if (SelectedPlaybackDevice != null)
+                RemoveCustomIcon(SelectedPlaybackDevice);
+        }
+
+        /// <summary>
+        /// Manejador para cambiar ícono desde el menú contextual de Recording
+        /// </summary>
+        private void mnuChangeRecordingIcon_Click(object sender, EventArgs e)
+        {
+            if (SelectedRecordingDevice != null)
+                ChangeCustomIcon(SelectedRecordingDevice);
+        }
+
+        /// <summary>
+        /// Manejador para eliminar ícono personalizado desde el menú contextual de Recording
+        /// </summary>
+        private void mnuRemoveRecordingIcon_Click(object sender, EventArgs e)
+        {
+            if (SelectedRecordingDevice != null)
+                RemoveCustomIcon(SelectedRecordingDevice);
+        }
+    }
 }
